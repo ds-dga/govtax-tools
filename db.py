@@ -24,7 +24,7 @@ class Database(object):
         cur.execute(q)
         item = cur.fetchone()
         if item:
-            return item
+            return item[0]
 
         q = f"""INSERT INTO ref_revenue_department (name, status)
             VALUES ('{dept}', 'A')
@@ -33,26 +33,98 @@ class Database(object):
         try:
             cur.execute(q)
             self.conn.commit()
-            return cur.fetchone()
+            return cur.fetchone()[0]
         except Exception as e:
             print(e, end="\r")
             self.conn.rollback()
             return None
 
     def get_or_create_revenue_type(self, rtype):
-        pass
+        if not rtype:
+            return None
+        q = f"""SELECT id FROM ref_revenue_type WHERE name = '{rtype}' """
+        cur = self.cursor
+        cur.execute(q)
+        item = cur.fetchone()
+        if item:
+            return item[0]
 
-    def get_or_create_revenue_deduct_type(self, rtype):
-        pass
-
-    def resource_grade_update(self, id, grade):
-        q = f"""
-        UPDATE resource SET grade = '{grade}', inspected = 'NOW()'
-        WHERE id = '{id}'
+        q = f"""INSERT INTO ref_revenue_type (name, status)
+            VALUES ('{rtype}', 'A')
+            RETURNING id
         """
         try:
-            self.cursor.execute(q)
+            cur.execute(q)
             self.conn.commit()
+            return cur.fetchone()[0]
         except Exception as e:
             print(e, end="\r")
             self.conn.rollback()
+            return None
+
+    def get_or_create_revenue_deduct_type(self, rtype):
+        if not rtype:
+            return None
+        q = f"""SELECT id FROM ref_revenue_deduct_type WHERE name = '{rtype}' """
+        cur = self.cursor
+        cur.execute(q)
+        item = cur.fetchone()
+        if item:
+            return item[0]
+
+        q = f"""INSERT INTO ref_revenue_deduct_type (name, status)
+            VALUES ('{rtype}', 'A')
+            RETURNING id
+        """
+        try:
+            cur.execute(q)
+            self.conn.commit()
+            return cur.fetchone()[0]
+        except Exception as e:
+            print(e, end="\r")
+            self.conn.rollback()
+            return None
+
+    def insert_revenue_income(
+        self, dept_id, rtype_id, budget_year, year, month, amount
+    ):
+        """The table "revenue_income" should have unique keys
+
+        alter table revenue_income add constraint yyyymm_rtype unique(dept_id, revenue_type_id, year, month);
+        """
+        q = f"""INSERT INTO revenue_income
+        (dept_id, revenue_type_id, budget_year, year, month, amount)
+        VALUES ({dept_id}, {rtype_id}, {budget_year}, {year}, {month}, {amount})
+        ON CONFLICT do nothing
+        RETURNING gid
+        """
+        try:
+            cur = self.cursor
+            cur.execute(q)
+            self.conn.commit()
+            return cur.fetchone()[0]
+        except Exception as e:
+            print(e, end="\r")
+            self.conn.rollback()
+            return None
+
+    def insert_revenue_deduct(self, rtype_id, budget_year, year, month, amount):
+        """The table "revenue_deduct" should have unique keys
+
+        alter table revenue_deduct add constraint yyyymm_rdtype unique(ref_revenue_deduct_type_id, year, month);
+        """
+        q = f"""INSERT INTO revenue_deduct
+        (ref_revenue_deduct_type_id, budget_year, year, month, amount)
+        VALUES ({rtype_id}, {budget_year}, {year}, {month}, {amount})
+        ON CONFLICT do nothing
+        RETURNING gid
+        """
+        try:
+            cur = self.cursor
+            cur.execute(q)
+            self.conn.commit()
+            return cur.fetchone()[0]
+        except Exception as e:
+            print(e, end="\r")
+            self.conn.rollback()
+            return None

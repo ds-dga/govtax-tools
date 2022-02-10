@@ -2,6 +2,7 @@ from openpyxl import load_workbook
 from datetime import datetime
 import re
 import os
+from db import Database
 
 MONTH_CONV = {
     "มค": 1,
@@ -25,6 +26,7 @@ def compatibility_sake(txt):
     if not txt:
         return txt
     # replace อื่น ๆ -> อื่นๆ since govspending's DB does this
+    txt = txt.replace("-", "")
     txt = txt.replace("อื่น ๆ", "อื่นๆ")
     txt = "ภาษีสุราฯ" if txt == "ภาษีสุรา" else txt
     return txt
@@ -58,7 +60,7 @@ def extract_mo(val):
 
 
 def get_months(sheet, row_ind):
-    selected_row = sheet[4]
+    selected_row = sheet[row_ind]
     mos = [
         (*extract_mo(i.value), i.column, i.column_letter)
         for i in selected_row
@@ -132,7 +134,7 @@ def get_deduction(sheet, months):
             continue
 
         # replace อื่น ๆ -> อื่นๆ since govspending's DB does this
-        val = compatibility_sake(val)
+        val = compatibility_sake(val).strip()
 
         if not started and val == start:
             started = True
@@ -142,17 +144,18 @@ def get_deduction(sheet, months):
 
         if val in end:
             if not has_sub_data:
-                results.append([active_cat, "-", active_cat_data])
+                results.append([active_cat, "", active_cat_data])
             return results
 
         cat_cmp = r"([\d\.]+)\s+?(.*)"
         sub_cmp = r"([-]+)\s+?(.*)"
         main_cat = re.match(cat_cmp, val)
         sub_cat = re.match(sub_cmp, val)
+
         if main_cat:
             val = main_cat.group(2)
-        if sub_cat:
-            val = sub_cat.group(2)
+        elif sub_cat:
+            val = sub_cat.group(2).strip()
 
         if main_cat:
             # print(val)
@@ -161,7 +164,7 @@ def get_deduction(sheet, months):
                 # print("  > new cat")
                 if not has_sub_data:
                     # print("  >> saved prev cat data")
-                    results.append([active_cat, "-", active_cat_data])
+                    results.append([active_cat, "", active_cat_data])
 
             active_cat = val
             has_sub_data = False
@@ -179,8 +182,32 @@ def get_deduction(sheet, months):
     return results
 
 
-def handle_file(fpath):
+def db_recorder(db, dataType, dept, section, yyyy, mm, total):
+    budget_year = int(yyyy)
+    if mm >= 10:
+        budget_year += 1
+    if dataType == "income":
+        dept_id = db.get_or_create_revenue_dept(dept)
+        revenue_type_id = db.get_or_create_revenue_type(section)
+        # print(f"[recorder] {dataType} dID={dept_id} rID={revenue_type_id}")
+        _id = db.insert_revenue_income(
+            dept_id, revenue_type_id, budget_year, yyyy, mm, total
+        )
+        return _id
+    elif dataType == "deduction":
+        rd_type_name = dept
+        if section:
+            rd_type_name = f"{dept}: {section}"
+        deduct_type_id = db.get_or_create_revenue_deduct_type(rd_type_name)
+        # print(f"[recorder] {dataType} rID={deduct_type_id}")
+        _id = db.insert_revenue_deduct(deduct_type_id, budget_year, yyyy, mm, total)
+        return _id
+    return False
+
+
+def handle_file(fpath, verbose, db):
     global init
+    init = True
     message = []
     message.append(f"[revenue] source path: {fpath}")
     wb = load_workbook(fpath)
@@ -189,9 +216,16 @@ def handle_file(fpath):
         sht = wb[sht_name]
         results, months = get_income(sht)
         for dept, section, data in results:
+            if dept == "กรมสรรพสามิต" and section == "ภาษีอื่นๆ":
+                # skip this since it's repetitive data
+                continue
             for yyyy, mm, total in data:
                 if not total:
                     continue
+                if verbose:
+                    print(f'[{yyyy}-{mm}] {f"{dept}-{section}".ljust(45)} {total:10f}')
+                if db:
+                    db_recorder(db, "income", dept, section, yyyy, mm, total)
                 structured_data.append(
                     [
                         dept,
@@ -206,6 +240,10 @@ def handle_file(fpath):
             for yyyy, mm, total in data:
                 if not total:
                     continue
+                if verbose:
+                    print(f'[{yyyy}-{mm}] {f"{dept}-{section}".ljust(45)} {total:10f}')
+                if db:
+                    db_recorder(db, "deduction", dept, section, yyyy, mm, total)
                 structured_data.append(
                     [
                         dept,
@@ -215,26 +253,36 @@ def handle_file(fpath):
                         total,
                     ]
                 )
-    message.append(f"[revenue] Total #{len(structured_data)}")
-    n = len(message) + 1
-    # if not init:
-    #     print(("\033[F\033[K") * n)
-    print("\n".join(message))
+    if verbose:
+        message.append(f"[revenue] Total #{len(structured_data)}")
+        n = len(message) + 1
+        # if not init:
+        #     print(("\033[F\033[K") * n)
+        print("\n".join(message))
     init = False
 
 
-def handle_dir(fpath):
+def handle_dir(fpath, verbose, db):
     for root, _, fs in os.walk(fpath):
         for f in fs:
             fp = os.path.join(root, f)
             if f.find(".xls") < 0 or f.find("~$") > -1:
                 continue
-            handle_file(fp)
+            handle_file(fp, verbose, db)
 
 
-def handle_source(path):
+def handle_source(path, **kw):
+    verbose = save2db = False
+    if "args" in kw:
+        verbose = kw["args"].print
+        save2db = kw["args"].db
+
+    db = None
+    if save2db:
+        db = Database()
+
     if os.path.isdir(path):
         print(f"[revenue] {path} is directory")
-        handle_dir(path)
+        handle_dir(path, verbose, db)
     else:
-        handle_file(path)
+        handle_file(path, verbose, db)
