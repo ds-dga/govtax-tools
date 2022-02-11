@@ -117,7 +117,8 @@ def get_income(sheet):
 
 
 def get_deduction(sheet, months):
-    end = ["รวมรายได้สุทธิ", "รวมรายได้สุทธิหลังหักจัดสรร"]
+    skips = ["รวมรายได้สุทธิ", "จัดสรรให้ อปท. ตาม พ.ร.บ. กำหนดแผนฯ"]
+    end = ["สัดส่วนการคืนภาษีมูลค่าเพิ่ม", ]
     start = "หัก"
     started = False
     active_cat = None
@@ -142,6 +143,9 @@ def get_deduction(sheet, months):
         if not started:
             continue
 
+        if val in skips:
+            continue
+
         if val in end:
             if not has_sub_data:
                 results.append([active_cat, "", active_cat_data])
@@ -156,6 +160,13 @@ def get_deduction(sheet, months):
             val = main_cat.group(2)
         elif sub_cat:
             val = sub_cat.group(2).strip()
+
+        """for god's sake Metamedia decided that "รวมรายได้สุทธิหลังหักจัดสรร" is
+        one of deduction_type and change the name to รายได้สุทธิหลังหักจัดสรร
+        """
+        if val == "รวมรายได้สุทธิหลังหักจัดสรร":
+            main_cat = True
+            val = "รายได้สุทธิหลังหักจัดสรร"
 
         if main_cat:
             # print(val)

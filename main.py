@@ -4,12 +4,8 @@ from revenue.processor import handle_source as revenue_handler
 parser = argparse.ArgumentParser()
 parser.add_argument("command", help="The command to run this program, e.g. revenue")
 parser.add_argument("--path", type=str, help="File or directory path to work on")
-parser.add_argument(
-    "--print", action=argparse.BooleanOptionalAction, help="Print output to stdout"
-)
-parser.add_argument(
-    "--db", action=argparse.BooleanOptionalAction, help="Save output to database"
-)
+parser.add_argument('--db', action='store_true')
+parser.add_argument('--print', action='store_true')
 
 
 def main():
