@@ -87,9 +87,32 @@ def wc_like(fp):
     return count + 1
 
 
+ANNUAL_PAY_COLS = [
+    "budget_year",
+    "transaction_year",
+    "transaction_month",
+    "min",
+    "agc",
+    "province",
+    "nfunc",
+    "objc",
+    "fund",
+    "budget_amount",
+    "adjust_amount",
+    "amount",
+    "percentage_amount",
+    "stg",
+    "transaction_type",
+    "nfunc1",
+    "nfunc2",
+]
+
+
 def annual_pay_converter(fp, headers):
     total = wc_like(fp)
     count = 1
+    budget_year = None
+    of = None
     with open(fp, "rt", encoding="iso-8859-11") as f:
         cf = csv.reader(f, delimiter="|")
         next(cf)  # skip header
@@ -97,10 +120,47 @@ def annual_pay_converter(fp, headers):
         for row in cf:
             if row[0] == "Grand Total":
                 continue
+
+            #"รหัสยุทธศาสตร์การจัดสรร"|"รหัสหน่วยงาน"|"รหัสจังหวัด (พื้นที่)"|"รหัสลักษณะงาน"|"รหัสหมวดรายจ่าย"|"รหัสงบประมาณ"|"เดือน/ปีงบประมาณ"|"รหัสรายจ่ายประจำ/ลงทุน"|"พรบ. (บาท)"|"งบฯ หลังโอน/ปป. ทั้งสิ้น (บาท)"|"เบิกจ่ายทั้งสิ้น (YTM) (บาท)"|"%เบิกจ่าย YTM ต่องบฯ หลังโอน/ปป.ทั้งสิ้น"
+            bb_code = row[5]
+            mmyyyy = row[6]
+
+            if not budget_year:
+                continue
+
+            if of is None:
+                of = open(f"./annual_pay_{budget_year}.csv", "wt", encoding="utf-8")
+                output = csv.DictWriter(of, fieldnames=ANNUAL_PAY_COLS)
+                output.writeheader()
+
+            row = {
+                "budget_year": "",
+                "transaction_year": "",
+                "transaction_month": "",
+                "min": "",
+                "agc": "",
+                "province": "",
+                "nfunc": "",
+                "objc": "",
+                "fund": "",
+                "budget_amount": "",
+                "adjust_amount": "",
+                "amount": "",
+                "percentage_amount": "",
+                "stg": "",
+                "transaction_type": "",
+                "nfunc1": "",
+                "nfunc2": "",
+            }
+            # print(row)
+            output.writerow(row)
             printProgressBar(
-                count + 1, total, prefix="Progress:", suffix="DONE", length=50
+                count + 1,
+                total,
+                prefix="Progress:",
+                suffix=f"{budget_year}",
+                length=50,
             )
-            count += 1
 
 
 MIS_FCTR_COLS = ["budget_year", "fund_center", "name"]

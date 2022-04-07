@@ -28,3 +28,19 @@ def printProgressBar(
     # Print New Line on Complete
     if iteration == total:
         print()
+
+
+THAI_MONTH_CONV = {
+    'ม.ค.': 1,
+    'ก.พ.': 2,
+    'มี.ค.': 3,
+    'เม.ย.': 4,
+    'พ.ค.': 5,
+    'มิ.ย.': 6,
+    'ก.ค.': 7,
+    'ส.ค.': 8,
+    'ก.ย.': 9,
+    'ต.ค.': 10,
+    'พ.ย.': 11,
+    'พ.ย.': 12,
+}
