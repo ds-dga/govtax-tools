@@ -7,10 +7,14 @@ There are 3 files:
 2. DGA_AnnualPay_02.csv
 3. MIS_FCTR_LONG_TEXT.csv
 """
+import re
 import os
 import csv
 
-from .utils import printProgressBar
+from gfmis.annualpay import annual_pay_converter, raw2row
+from gfmis.mis_fctr import mis_fctr_converter
+
+from .utils import printProgressBar, wc_like
 
 
 def check_fieldnames(fp):
@@ -72,135 +76,11 @@ def handle_gfmis_dir(fp, **kw):
                 continue
 
             if title == "DGA_AnnualPay":
-                # annual_pay_converter(full_path, headers)
+                annual_pay_converter(full_path)
                 print()
+                pass
             elif title == "MIS_FCTR_LONG_TEXT":
-                mis_fctr_converter(full_path, headers)
+                mis_fctr_converter(full_path)
                 print()
 
 
-def wc_like(fp):
-    # open file in read mode
-    with open(fp, "rt", encoding="iso-8859-11") as fp:
-        for count, line in enumerate(fp):
-            pass
-    return count + 1
-
-
-ANNUAL_PAY_COLS = [
-    "budget_year",
-    "transaction_year",
-    "transaction_month",
-    "min",
-    "agc",
-    "province",
-    "nfunc",
-    "objc",
-    "fund",
-    "budget_amount",
-    "adjust_amount",
-    "amount",
-    "percentage_amount",
-    "stg",
-    "transaction_type",
-    "nfunc1",
-    "nfunc2",
-]
-
-
-def annual_pay_converter(fp, headers):
-    total = wc_like(fp)
-    count = 1
-    budget_year = None
-    of = None
-    with open(fp, "rt", encoding="iso-8859-11") as f:
-        cf = csv.reader(f, delimiter="|")
-        next(cf)  # skip header
-
-        for row in cf:
-            if row[0] == "Grand Total":
-                continue
-
-            #"รหัสยุทธศาสตร์การจัดสรร"|"รหัสหน่วยงาน"|"รหัสจังหวัด (พื้นที่)"|"รหัสลักษณะงาน"|"รหัสหมวดรายจ่าย"|"รหัสงบประมาณ"|"เดือน/ปีงบประมาณ"|"รหัสรายจ่ายประจำ/ลงทุน"|"พรบ. (บาท)"|"งบฯ หลังโอน/ปป. ทั้งสิ้น (บาท)"|"เบิกจ่ายทั้งสิ้น (YTM) (บาท)"|"%เบิกจ่าย YTM ต่องบฯ หลังโอน/ปป.ทั้งสิ้น"
-            bb_code = row[5]
-            mmyyyy = row[6]
-
-            if not budget_year:
-                continue
-
-            if of is None:
-                of = open(f"./annual_pay_{budget_year}.csv", "wt", encoding="utf-8")
-                output = csv.DictWriter(of, fieldnames=ANNUAL_PAY_COLS)
-                output.writeheader()
-
-            row = {
-                "budget_year": "",
-                "transaction_year": "",
-                "transaction_month": "",
-                "min": "",
-                "agc": "",
-                "province": "",
-                "nfunc": "",
-                "objc": "",
-                "fund": "",
-                "budget_amount": "",
-                "adjust_amount": "",
-                "amount": "",
-                "percentage_amount": "",
-                "stg": "",
-                "transaction_type": "",
-                "nfunc1": "",
-                "nfunc2": "",
-            }
-            # print(row)
-            output.writerow(row)
-            printProgressBar(
-                count + 1,
-                total,
-                prefix="Progress:",
-                suffix=f"{budget_year}",
-                length=50,
-            )
-
-
-MIS_FCTR_COLS = ["budget_year", "fund_center", "name"]
-
-
-def mis_fctr_converter(fp, headers):
-    total = wc_like(fp)
-    count = 1
-    budget_year = None
-    of = None
-    with open(fp, "rt", encoding="iso-8859-11") as f:
-        cf = csv.reader(f, delimiter="|")
-        next(cf)  # skip header
-        for row in cf:
-            start, end = row[2], row[1]
-            bb_code, title = row[0], row[3]
-            y1, y2 = int(start[:4]), int(end[:4])
-            if y1 < y2:
-                budget_year = y2 + 543
-
-            if not budget_year:
-                continue
-
-            if of is None:
-                of = open(f"./mis_fctr_{budget_year}.csv", "wt", encoding="utf-8")
-                output = csv.DictWriter(of, fieldnames=MIS_FCTR_COLS)
-                output.writeheader()
-
-            row = {
-                "fund_center": bb_code,
-                "name": title,
-                "budget_year": budget_year,
-            }
-            # print(row)
-            output.writerow(row)
-            printProgressBar(
-                count + 1,
-                total,
-                prefix="Progress:",
-                suffix=f"{start[:4]}-{end[:4]}-{budget_year}",
-                length=50,
-            )
-            count += 1
