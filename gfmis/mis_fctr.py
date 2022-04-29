@@ -1,3 +1,4 @@
+import os
 import csv
 from gfmis.utils import printProgressBar, wc_like
 
@@ -53,7 +54,14 @@ def mis_fctr_converter(fp):
             results = []
 
     if lines:
-        of = open(f"./mis_fctr_{budget_year}.sql", "wt", encoding="utf-8")
+
+        base_path = 'output'
+        if not os.path.exists(base_path):
+            os.mkdir('output')
+
+        out_path = os.path.join(base_path, f'mis_fctr_{budget_year}.sql')
+
+        of = open(out_path, "wt", encoding="utf-8")
         of.write("---\n")
         of.writelines(lines)
         of.write("--- EOF ---")
