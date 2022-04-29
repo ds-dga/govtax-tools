@@ -80,13 +80,12 @@ def raw2row(raw, wantedType="bulk_insert"):
                         . "," . floatval($adjustAmount) . "," . floatval($amount) . "," . floatval($percentageAmount) . ",'" . $stg . "'," . $type . ",'" . $nfunc1 . "','" . $nfunc2 . "')";
 
     """
-    # "ต.ค. 2565"
-    th_mo, th_yr = th_mmyy.split()
-    # TODO: try/except month
+    # "ต.ค. 2565" --> month, budget_year
+    th_mo, budget_year = th_mmyy.split()
     mm = THAI_MONTH_CONV[th_mo]
-    budget_year = th_yr
+    th_yr = budget_year
     if int(mm) > 9:
-        budget_year = int(th_yr) + 1
+        th_yr = int(budget_year) - 1
 
     ministry_code = f"{agc[:2]}000"
     # extra process
@@ -120,13 +119,18 @@ def raw2row(raw, wantedType="bulk_insert"):
         return one
 
     # if wantedType == 'bulk_insert':
-    bulk_ins_items = f"\n({budget_year},{th_yr},{mm},{ministry_code},{agc},{province},{nfunc},{objc},{nfunc},{objc},{fund},{budget_amount},{adj_amount},{amount},{percentage_amount},{strategy},{tx_type},{nfunc1},{nfunc2})"
+    bulk_ins_items = f"\n('{budget_year}','{th_yr}','{mm}','{ministry_code}','{agc}','{province}','{nfunc}','{objc}','{fund}','{budget_amount}','{adj_amount}','{amount}','{percentage_amount}','{strategy}','{tx_type}','{nfunc1}','{nfunc2}')"
 
     return bulk_ins_items
 
 
 def annualpay_query(items):
-    txt = f"""--\n\nINSERT INTO gfmis_transaction (budget_year, transaction_year, transaction_month, min, agc, province, nfunc, objc, fund, budget_amount, adjust_amount, amount, percentage_amount, stg, transaction_type, nfunc1, nfunc2) VALUES {','.join(items)};\n\n--"""
+    txt = f"""--\n\nINSERT INTO gfmis_transaction (budget_year, transaction_year, transaction_month, min, agc, province, nfunc, objc, fund, budget_amount, adjust_amount, amount, percentage_amount, stg, transaction_type, nfunc1, nfunc2) VALUES {','.join(items)}
+    -- ON CONFLICT ON CONSTRAINT gf_tx_unique DO UPDATE SET
+    --    adjust_amount = EXCLUDED.adjust_amount,
+    --    amount = EXCLUDED.amount,
+    --    percentage_amount = EXCLUDED.percentage_amount
+    ;\n\n--"""
     return txt
 
 
@@ -143,10 +147,14 @@ def annual_pay_converter(fp):
             if row[0] == "Grand Total":
                 continue
 
+            if budget_year is None:
+                h = raw2row(row, "dict")
+                budget_year = h["budget_year"]
+
             one = raw2row(row)
             results.append(one)
 
-            if len(results) % 3000 == 0:
+            if len(results) % 30000 == 0:
                 txt = annualpay_query(results)
                 lines.append(txt)
                 results = []
@@ -167,11 +175,25 @@ def annual_pay_converter(fp):
             results = []
 
     if lines:
-        if os.path.exists(f"./annual_pay.sql"):
-            of = open(f"./annual_pay.sql", "at", encoding="utf-8")
+        base_path = 'output'
+        if not os.path.exists(base_path):
+            os.mkdir('output')
+
+        out_path = os.path.join(base_path, f'annual_pay_{budget_year}.sql')
+        if os.path.exists(out_path):
+            of = open(out_path, "at", encoding="utf-8")
         else:
-            of = open(f"./annual_pay.sql", "wt", encoding="utf-8")
-        of.write("---\n")
+            of = open(out_path, "wt", encoding="utf-8")
+            of.write(f"--\n")
+            of.write(f"-- delete the existing data first before adding new stuffs\n")
+            of.write(f"--\n\n")
+            of.write(
+                f"DELETE FROM gfmis_transaction WHERE budget_year = '{budget_year}';\n"
+            )
+            of.write(f"--\n")
+            of.write(f"--\n\n")
+
+        of.write("--\n")
         of.writelines(lines)
         of.write("--- EOF ---")
         of.close()
