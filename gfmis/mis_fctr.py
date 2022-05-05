@@ -1,6 +1,6 @@
 import os
 import csv
-from gfmis.utils import printProgressBar, wc_like
+from gfmis.utils import printProgressBar, wc_like, insert_src_update_query
 
 MIS_FCTR_COLS = ["budget_year", "fund_center", "name"]
 
@@ -60,9 +60,11 @@ def mis_fctr_converter(fp):
             os.mkdir('output')
 
         out_path = os.path.join(base_path, f'mis_fctr_{budget_year}.sql')
-
         of = open(out_path, "wt", encoding="utf-8")
-        of.write("---\n")
+        of.write("---\n"),']'
         of.writelines(lines)
+
+        insert_src_update_query(fp, of, 'gfmis', 'mis_fctr')
+
         of.write("--- EOF ---")
         of.close()
