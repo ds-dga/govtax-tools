@@ -1,5 +1,6 @@
 import os
 import psycopg2
+from utils import get_git_revision_short_hash
 
 
 class Database(object):
@@ -118,6 +119,32 @@ class Database(object):
         VALUES ({rtype_id}, {budget_year}, {year}, {month}, {amount})
         ON CONFLICT do nothing
         RETURNING gid
+        """
+        try:
+            cur = self.cursor
+            cur.execute(q)
+            self.conn.commit()
+            return cur.fetchone()[0]
+        except Exception as e:
+            print(e, end="\r")
+            self.conn.rollback()
+            return None
+
+
+    def insert_data_source_update(self, src, note, timestamp=None):
+        """The table "revenue_deduct" should have unique keys
+
+        alter table revenue_deduct add constraint yyyymm_rdtype unique(ref_revenue_deduct_type_id, year, month);
+        """
+        _procr = f'govtax-tools:{get_git_revision_short_hash()}'
+        tmsp = timestamp if timestamp is not None else 'NOW()'
+
+        q = f"""INSERT INTO data_source_update
+            (created_at, source, note, processor) VALUES
+            ('{tmsp}', '{src}', '{note}', '{_procr}')
+            ON CONFLICT do nothing
+            RETURNING id
+            ;
         """
         try:
             cur = self.cursor
