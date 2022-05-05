@@ -1,5 +1,12 @@
+from concurrent.futures import process
 import csv
-from gfmis.utils import THAI_MONTH_CONV, printProgressBar, wc_like
+from datetime import datetime
+from gfmis.utils import (
+    THAI_MONTH_CONV,
+    printProgressBar,
+    wc_like,
+    insert_src_update_query,
+)s
 import os
 
 ANNUAL_PAY_COLS = [
@@ -175,11 +182,12 @@ def annual_pay_converter(fp):
             results = []
 
     if lines:
-        base_path = 'output'
-        if not os.path.exists(base_path):
-            os.mkdir('output')
 
-        out_path = os.path.join(base_path, f'annual_pay_{budget_year}.sql')
+        base_path = "output"
+        if not os.path.exists(base_path):
+            os.mkdir("output")
+
+        out_path = os.path.join(base_path, f"annual_pay_{budget_year}.sql")
         if os.path.exists(out_path):
             of = open(out_path, "at", encoding="utf-8")
         else:
@@ -192,6 +200,8 @@ def annual_pay_converter(fp):
             )
             of.write(f"--\n")
             of.write(f"--\n\n")
+
+        insert_src_update_query(fp, of, 'gfmis', 'annual_pay')
 
         of.write("--\n")
         of.writelines(lines)

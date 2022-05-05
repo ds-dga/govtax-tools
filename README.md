@@ -43,7 +43,7 @@ The procedure is much cleaner, yet it's not yet one-command to rule them all. As
 
 2. push those SQL commands to DB
 
-        cat output/annual_pay_YYYY.sql| psql -hHOST -pPORT -dDB_NAME -Ustaff
+        cat output/annual_pay_YYYY.sql | psql -hHOST -pPORT -dDB_NAME -Ustaff
 
 
 ### Updates

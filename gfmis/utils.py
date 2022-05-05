@@ -1,3 +1,32 @@
+from datetime import datetime
+import subprocess
+
+
+def get_git_revision_short_hash() -> str:
+    try:
+        return (
+            subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
+            .decode("ascii")
+            .strip()
+        )
+    except:
+        return "-"
+
+
+def insert_src_update_query(fp, output_file, src, note=""):
+    # get mtime from file
+    mod_datetime = datetime.fromtimestamp(os.path.getmtime(fp))
+    output_file.write("-- INSERT data_source_update \n\n")
+    _procr = f"govtax-tools:{get_git_revision_short_hash()}"
+    output_file.write(
+        f"""
+        INSERT INTO data_source_update
+            (created_at, source, note, processor) VALUES
+            ('{mod_datetime.isoformat()}', '{src}', '{note} '{_procr}');
+    """
+    )
+
+
 # Print iterations progress
 def printProgressBar(
     iteration,

@@ -11,10 +11,8 @@ import re
 import os
 import csv
 
-from gfmis.annualpay import annual_pay_converter, raw2row
+from gfmis.annualpay import annual_pay_converter
 from gfmis.mis_fctr import mis_fctr_converter
-
-from .utils import printProgressBar, wc_like
 
 
 def check_fieldnames(fp):
@@ -31,36 +29,26 @@ def check_fieldnames(fp):
         '"รหัสงบประมาณ"|"วันที่สิ้นสุด"|"วันที่เริ่มต้น"|"ชื่อรหัสงบประมาณ"'
     )
     DGA_ANNUALPAY_HEADERS = '"รหัสยุทธศาสตร์การจัดสรร"|"รหัสหน่วยงาน"|"รหัสจังหวัด (พื้นที่)"|"รหัสลักษณะงาน"|"รหัสหมวดรายจ่าย"|"รหัสงบประมาณ"|"เดือน/ปีงบประมาณ"|"รหัสรายจ่ายประจำ/ลงทุน"|"พรบ. (บาท)"|"งบฯ หลังโอน/ปป. ทั้งสิ้น (บาท)"|"เบิกจ่ายทั้งสิ้น (YTM) (บาท)"|"%เบิกจ่าย YTM ต่องบฯ หลังโอน/ปป.ทั้งสิ้น"'
-    DGA_ANNUALPAY_HEADERS_PRE_202204 = '"รหัสยุทธศาสตร์การจัดสรร"|"รหัสหน่วยงาน"|"รหัสจังหวัด"|"รหัสลักษณะงาน"|"รหัสหมวดรายจ่าย"|"รหัสงบประมาณ"|"เดือน/ปีงบประมาณ"|"รหัสรายจ่ายประจำ/ลงทุน"|พรบ. (บาท)|งบฯ หลังโอน/ปป. ทั้งสิ้น (บาท)|เบิกจ่ายสะสม (บาท)|%เบิกจ่ายสะสมต่องบฯหลังโอน/ปป.ทั้งสิ้น'
     headers = None
     title = ""
     if fp.find("DGA_AnnualPay") > -1:
-        # headers = DGA_ANNUALPAY_HEADERS
+        headers = DGA_ANNUALPAY_HEADERS
         title = "DGA_AnnualPay"
     elif fp.find("MIS_FCTR_LONG_TEXT") > -1:
         headers = MIS_FCTR_HEADERS
         title = "MIS_FCTR_LONG_TEXT"
 
-    if not title:
+    if not headers:
         return False, "", []
 
-    headers = headers.replace('"', "").split("|") if headers else []
+    headers = headers.replace('"', "").split("|")
+    # print(f'[CHECK] file path: {fp}')
     row = False
     with open(fp, "rt", encoding="iso-8859-11") as f:
         cf = csv.reader(f, delimiter="|")
         row = next(cf)
-        print("HEADER : ", row)
-    is_good = row == headers
-    if title == "DGA_AnnualPay":
-        header_pre_202204 = DGA_ANNUALPAY_HEADERS_PRE_202204.replace('"', "").split("|")
-        header_curr= DGA_ANNUALPAY_HEADERS.replace('"', "").split("|")
-        is_good = any(
-            (row == header_pre_202204, row == header_curr)
-        )
-        print(row)
-        print(DGA_ANNUALPAY_HEADERS)
-        print(DGA_ANNUALPAY_HEADERS_PRE_202204)
-    return is_good, title, headers
+        # print("HEADER : ", row)
+    return row == headers, title, headers
 
 
 def handle_gfmis_dir(fp, **kw):
@@ -78,6 +66,7 @@ def handle_gfmis_dir(fp, **kw):
         save2db = kw["args"].db
 
     for _base, _, fs in os.walk(fp):
+        has_anything = False
         for f in fs:
             full_path = os.path.join(_base, f)
             valid, title, headers = check_fieldnames(full_path)
@@ -87,8 +76,21 @@ def handle_gfmis_dir(fp, **kw):
 
             if title == "DGA_AnnualPay":
                 annual_pay_converter(full_path)
+                has_anything = True
                 print()
                 pass
             elif title == "MIS_FCTR_LONG_TEXT":
                 mis_fctr_converter(full_path)
+                has_anything = True
                 print()
+        
+        if has_anything:
+            # TODO: record to data_source_update
+            """
+            INSERT INTO data_source_update
+                (created_at, source, processor) VALUES
+                ('2022-05-01T16:00+07', 'bb', 'govtax-tools');
+            """
+            pass
+
+
