@@ -64,7 +64,7 @@ def mis_fctr_converter(fp):
         of.write("---\n"),']'
         of.writelines(lines)
 
-        insert_src_update_query(fp, of, 'gfmis', 'mis_fctr')
+        insert_src_update_query(fp, of, 'gfmis', f'mis_fctr:{budget_year}')
 
         of.write("--- EOF ---")
         of.close()

@@ -118,7 +118,9 @@ def get_income(sheet):
 
 def get_deduction(sheet, months):
     skips = ["รวมรายได้สุทธิ", "จัดสรรให้ อปท. ตาม พ.ร.บ. กำหนดแผนฯ"]
-    end = ["สัดส่วนการคืนภาษีมูลค่าเพิ่ม", ]
+    end = [
+        "สัดส่วนการคืนภาษีมูลค่าเพิ่ม",
+    ]
     start = "หัก"
     started = False
     active_cat = None
@@ -265,12 +267,31 @@ def handle_file(fpath, verbose, db):
                     ]
                 )
     if verbose:
+        latest = get_latest_month(structured_data)
+        message.append(f"[revenue] Latest record on {latest.isoformat()}")
         message.append(f"[revenue] Total #{len(structured_data)}")
-        n = len(message) + 1
+        # n = len(message) + 1
         # if not init:
         #     print(("\033[F\033[K") * n)
         print("\n".join(message))
+
+    if len(structured_data) > 0 and db:
+        latest = get_latest_month(structured_data)
+        db.insert_data_source_update("revenue", "", latest.isoformat())
+
     init = False
+
+
+def get_latest_month(items):
+    yyyy, mm = 0, 0
+    for [_, _, yr, mo, _] in items:
+        if int(yr) > yyyy:
+            yyyy = int(yr)
+            mm = int(mo)
+        elif int(yr) == yyyy and int(mo) > mm:
+            mm = int(mo)
+    # make sure date is correct on GMT+7 too
+    return datetime(yyyy - 543, mm, 1, 14, 0, 0)
 
 
 def handle_dir(fpath, verbose, db):

@@ -6,7 +6,7 @@ from gfmis.utils import (
     printProgressBar,
     wc_like,
     insert_src_update_query,
-)s
+)
 import os
 
 ANNUAL_PAY_COLS = [
@@ -201,9 +201,9 @@ def annual_pay_converter(fp):
             of.write(f"--\n")
             of.write(f"--\n\n")
 
-        insert_src_update_query(fp, of, 'gfmis', 'annual_pay')
-
         of.write("--\n")
         of.writelines(lines)
+
+        insert_src_update_query(fp, of, 'gfmis', f'annual_pay:{budget_year}')
         of.write("--- EOF ---")
         of.close()
